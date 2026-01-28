@@ -27,34 +27,33 @@ jobs:
 
       - name: Clone source code
         run: |
+          # 拉取 H 大针对 MT7981 优化的源码
           git clone --depth 1 https://github.com/hanwckf/immortalwrt-mt798x openwrt
           cd openwrt
-          # 添加插件源
+          # 添加 Lucky、PassWall 和 Hello World 插件源
           echo 'src-git lucky https://github.com/gdy666/luci-app-lucky.git' >> feeds.conf.default
           echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall.git' >> feeds.conf.default
           echo 'src-git helloworld https://github.com/fw876/helloworld.git' >> feeds.conf.default
+          
           ./scripts/feeds update -a
+          
+          # 强制删除导致编译中断的冲突插件
+          rm -rf feeds/helloworld/dns2socks-rust
+          rm -rf feeds/helloworld/shadow-tls
+          rm -rf feeds/helloworld/shadowsocks-rust
+          rm -rf feeds/helloworld/tuic-client
+          
           ./scripts/feeds install -a
 
       - name: Load Custom Configuration
         run: |
           cd openwrt
+          # 使用 360T7 硬件配置
           cp -f defconfig/mt7981-ax3000.config .config
-          # 修改 IP 为 192.168.10.1 以避开你的 192.168.0.1 光猫
+          # 修改后台 IP 为 192.168.10.1 以避开你的光猫网段
           sed -i 's/192.168.1.1/192.168.10.1/g' package/base-files/files/bin/config_generate
           make defconfig
 
       - name: SSH connection to Actions
         uses: P3TERX/ssh2actions@main
-        if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
-
-      - name: Compile the firmware
-        run: |
-          cd openwrt
-          make -j$(nproc) || make -j1 V=s
-
-      - name: Upload firmware directory
-        uses: actions/upload-artifact@v4
-        with:
-          name: OpenWrt_360T7_Firmware
-          path: openwrt/bin/targets/
+        if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh
