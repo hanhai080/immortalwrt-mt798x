@@ -27,34 +27,31 @@ jobs:
 
       - name: Clone source code
         run: |
-          # 拉取 H 大针对 MT7981 优化的源码
+          # 拉取 H 大针对 MT7981 优化的核心源码
           git clone --depth 1 https://github.com/hanwckf/immortalwrt-mt798x openwrt
           cd openwrt
           
-          # 添加 Lucky 和 PassWall
+          # 1. 正常添加 Lucky 插件
           echo 'src-git lucky https://github.com/gdy666/luci-app-lucky.git' >> feeds.conf.default
-          echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall.git' >> feeds.conf.default
           
-          # 【方案调整】放弃会导致报错的 helloworld 原源
-          # 改用这种方式添加 SSR-Plus (Hello World)，避开不兼容的 Rust 插件
+          # 2. 直接克隆 Helloworld 和 Passwall 到 package 目录，彻底绕过 feed 索引报错
           git clone --depth 1 https://github.com/fw876/helloworld.git package/helloworld
+          git clone --depth 1 https://github.com/xiaorouji/openwrt-passwall.git package/passwall
+
+          # 3. 强制物理删除 package 目录下所有会导致报错的 Rust 文件夹
+          find package/helloworld/ -name "*rust*" -o -name "*shadow-tls*" -o -name "*tuic-client*" | xargs rm -rf
+          find package/passwall/ -name "*rust*" -o -name "*shadow-tls*" | xargs rm -rf
           
-          # 更新并安装 feeds
+          # 4. 更新并安装剩下正常的插件
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          
-          # 物理删除 package 目录下导致扫描报错的残留
-          rm -rf package/helloworld/dns2socks-rust
-          rm -rf package/helloworld/shadow-tls
-          rm -rf package/helloworld/shadowsocks-rust
-          rm -rf package/helloworld/tuic-client
 
       - name: Load Custom Configuration
         run: |
           cd openwrt
           # 使用 360T7 硬件配置
           cp -f defconfig/mt7981-ax3000.config .config
-          # 修改后台 IP 为 192.168.10.1
+          # 修改后台 IP 为 192.168.10.1 以避开你的 192.168.0.1 光猫
           sed -i 's/192.168.1.1/192.168.10.1/g' package/base-files/files/bin/config_generate
           make defconfig
 
