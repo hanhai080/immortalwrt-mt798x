@@ -27,30 +27,28 @@ jobs:
 
       - name: Clone source code
         run: |
-          # 拉取 H 大针对 MT7981 优化的源码
           git clone --depth 1 https://github.com/hanwckf/immortalwrt-mt798x openwrt
           cd openwrt
-          # 添加 Lucky、PassWall 和 Hello World 插件源
+          # 添加插件源
           echo 'src-git lucky https://github.com/gdy666/luci-app-lucky.git' >> feeds.conf.default
           echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall.git' >> feeds.conf.default
           echo 'src-git helloworld https://github.com/fw876/helloworld.git' >> feeds.conf.default
           
+          # 核心修复：先拉取代码但不更新索引
           ./scripts/feeds update -a
           
-          # 强制删除导致编译中断的冲突插件
-          rm -rf feeds/helloworld/dns2socks-rust
-          rm -rf feeds/helloworld/shadow-tls
-          rm -rf feeds/helloworld/shadowsocks-rust
-          rm -rf feeds/helloworld/tuic-client
+          # 在安装索引前，彻底物理删除报错的文件夹
+          find feeds/helloworld/ -name "*rust*" -o -name "*shadow-tls*" -o -name "*tuic-client*" | xargs rm -rf
           
+          # 再次更新并正式安装
+          ./scripts/feeds update -i
           ./scripts/feeds install -a
 
       - name: Load Custom Configuration
         run: |
           cd openwrt
-          # 使用 360T7 硬件配置
           cp -f defconfig/mt7981-ax3000.config .config
-          # 修改后台 IP 为 192.168.10.1 以避开你的光猫网段
+          # 修改后台 IP 为 192.168.10.1
           sed -i 's/192.168.1.1/192.168.10.1/g' package/base-files/files/bin/config_generate
           make defconfig
 
