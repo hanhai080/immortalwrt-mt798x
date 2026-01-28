@@ -31,19 +31,20 @@ jobs:
           git clone --depth 1 https://github.com/hanwckf/immortalwrt-mt798x openwrt
           cd openwrt
           
-          # 1. 正常添加 Lucky 插件
+          # 使用最稳妥的 feeds 方式添加插件源
           echo 'src-git lucky https://github.com/gdy666/luci-app-lucky.git' >> feeds.conf.default
+          echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall.git' >> feeds.conf.default
+          echo 'src-git helloworld https://github.com/fw876/helloworld.git' >> feeds.conf.default
           
-          # 2. 直接克隆 Helloworld 和 Passwall 到 package 目录，彻底绕过 feed 索引报错
-          git clone --depth 1 https://github.com/fw876/helloworld.git package/helloworld
-          git clone --depth 1 https://github.com/xiaorouji/openwrt-passwall.git package/passwall
-
-          # 3. 强制物理删除 package 目录下所有会导致报错的 Rust 文件夹
-          find package/helloworld/ -name "*rust*" -o -name "*shadow-tls*" -o -name "*tuic-client*" | xargs rm -rf
-          find package/passwall/ -name "*rust*" -o -name "*shadow-tls*" | xargs rm -rf
-          
-          # 4. 更新并安装剩下正常的插件
+          # 更新 feeds，这一步会把源码下载到 feeds 目录
           ./scripts/feeds update -a
+          
+          # 【最关键的一步】强制物理删除所有会导致 Makefile 报错的 Rust 相关文件夹
+          # 这样 install -a 扫描时就不会报错了
+          find feeds/helloworld/ -name "*rust*" -o -name "*shadow-tls*" -o -name "*tuic-client*" | xargs rm -rf
+          find feeds/passwall/ -name "*rust*" -o -name "*shadow-tls*" | xargs rm -rf
+          
+          # 重新安装插件索引
           ./scripts/feeds install -a
 
       - name: Load Custom Configuration
@@ -51,7 +52,7 @@ jobs:
           cd openwrt
           # 使用 360T7 硬件配置
           cp -f defconfig/mt7981-ax3000.config .config
-          # 修改后台 IP 为 192.168.10.1 以避开你的 192.168.0.1 光猫
+          # 修改后台 IP 为 192.168.10.1 以避开你的光猫网段
           sed -i 's/192.168.1.1/192.168.10.1/g' package/base-files/files/bin/config_generate
           make defconfig
 
