@@ -56,4 +56,15 @@ jobs:
 
       - name: SSH connection to Actions
         uses: P3TERX/ssh2actions@main
-        if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh
+        if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+
+      - name: Compile the firmware
+        run: |
+          cd openwrt
+          make -j$(nproc) || make -j1 V=s
+
+      - name: Upload firmware directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenWrt_360T7_Firmware
+          path: openwrt/bin/targets/
